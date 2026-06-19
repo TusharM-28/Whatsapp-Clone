@@ -10,7 +10,7 @@ const io = new Server(server, {
 });
 
 const PORT = process.env.PORT || 3000;
-const ACCESS_CODE = process.env.ACCESS_CODE || 'letmein';
+const ACCESS_CODE = process.env.ACCESS_CODE || 'RIGLU';
 const MAX_USERS = 2;
 
 app.use(express.static(path.join(__dirname, 'public')));
