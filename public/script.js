@@ -7,7 +7,9 @@ let searchMatches = [];
 let currentSearchIdx = -1;
 let unreadCount = 0;
 const receivedMessageIds = new Set();
-const SOUND_BEEP = 'data:audio/mp3;base64,//NExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//NExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq'; // short dummy base64 for simplicity
+const SOUND_BEEP = 'data:audio/mp3;base64,//NExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//NExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq';
+const tickSVG = '<svg viewBox="0 0 16 15" width="16" height="15"><path fill="currentColor" d="M15.01 3.316l-.478-.372a.365.365 0 0 0-.51.063L8.666 9.879a.32.32 0 0 1-.484.033l-.358-.325a.32.32 0 0 0-.484.032l-.378.483a.418.418 0 0 0 .036.541l1.32 1.266c.143.14.361.125.484-.033l6.272-8.048a.366.366 0 0 0-.064-.512z"/></svg>';
+const doubleTickSVG = '<svg viewBox="0 0 16 15" width="16" height="15"><path fill="currentColor" d="M15.01 3.316l-.478-.372a.365.365 0 0 0-.51.063L8.666 9.879a.32.32 0 0 1-.484.033l-.358-.325a.32.32 0 0 0-.484.032l-.378.483a.418.418 0 0 0 .036.541l1.32 1.266c.143.14.361.125.484-.033l6.272-8.048a.366.366 0 0 0-.064-.512zm-4.1 0l-.478-.372a.365.365 0 0 0-.51.063L4.566 9.879a.32.32 0 0 1-.484.033L1.891 7.769a.366.366 0 0 0-.515.006l-.423.433a.364.364 0 0 0 .006.514l3.258 3.185c.143.14.361.125.484-.033l6.272-8.048a.365.365 0 0 0-.063-.51z"/></svg>';
 
 // DOM Elements
 const els = {
@@ -100,11 +102,11 @@ els.joinBtn.addEventListener('click', () => {
   socket.on('stop_typing', () => els.typing.textContent = '');
   
   socket.on('chat_message', msg => {
+    const isAtBottom = els.msgs.scrollHeight - els.msgs.scrollTop <= els.msgs.clientHeight + 150;
     renderMessage(msg);
     if (msg.username !== myUsername) {
       if (!settings.muted && !document.hasFocus()) new Audio(SOUND_BEEP).play().catch(()=>{});
-      const isScrolledUp = els.msgs.scrollHeight - els.msgs.scrollTop > els.msgs.clientHeight + 50;
-      if (isScrolledUp) {
+      if (!isAtBottom) {
         unreadCount++; els.unreadCount.textContent = unreadCount; els.unreadBadge.classList.remove('hidden');
       } else {
         els.msgs.scrollTop = els.msgs.scrollHeight;
@@ -117,13 +119,13 @@ els.joinBtn.addEventListener('click', () => {
 
   socket.on('message_delivered', d => {
     const tick = document.getElementById(`tick-${d.messageId}`);
-    if (tick && !tick.classList.contains('read')) tick.innerHTML = '✓✓';
+    if (tick && !tick.classList.contains('read')) tick.innerHTML = doubleTickSVG;
   });
 
   socket.on('messages_read', d => {
     d.messageIds.forEach(id => {
       const tick = document.getElementById(`tick-${id}`);
-      if (tick) { tick.innerHTML = '✓✓'; tick.classList.add('read'); }
+      if (tick) { tick.innerHTML = doubleTickSVG; tick.classList.add('read'); }
     });
   });
 
@@ -208,7 +210,7 @@ function renderMessage(msg) {
   time.textContent = new Date(msg.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
   meta.appendChild(time);
   if (isMine) {
-    const tick = document.createElement('span'); tick.className = 'read-receipt'; tick.id = `tick-${msg.messageId}`; tick.innerHTML = '✓';
+    const tick = document.createElement('span'); tick.className = 'read-receipt'; tick.id = `tick-${msg.messageId}`; tick.innerHTML = tickSVG;
     meta.appendChild(tick);
   }
   inner.appendChild(meta);
@@ -224,8 +226,10 @@ function renderMessage(msg) {
   });
   wrap.addEventListener('dblclick', e => {
     targetMsgId = msg.messageId;
-    els.reactionPicker.style.left = `${e.pageX - 50}px`; els.reactionPicker.style.top = `${e.pageY - 40}px`;
-    els.reactionPicker.classList.remove('hidden');
+    targetMsgText = msg.text || msg.fileName || msg.type;
+    replyContext = { messageId: targetMsgId, username: document.querySelector(`[data-id="${targetMsgId}"] .username-lbl`)?.textContent || myUsername, preview: targetMsgText };
+    els.replyName.textContent = replyContext.username; els.replyText.textContent = replyContext.preview;
+    els.replyBar.classList.remove('hidden'); els.input.focus(); els.ctxMenu.classList.add('hidden');
   });
 
   els.msgs.appendChild(wrap);
